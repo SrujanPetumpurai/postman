@@ -2,34 +2,54 @@
 import React, { useState } from 'react';
 import { sendRequest } from '../lib/httpClient';
 import Params from '../components/Params';
+import Body from '../components/Body';
+import Headers from '../components/Headers';
 
 export default function Home() {
   const [method, setMethod] = useState('GET');
   const [url, setUrl] = useState('');
   const [response, setResponse] = useState<{status?: number| null ; headers?: any; body?: any}>({});
   const [inputType,setInputType]= useState<'Params'|'Body'|'Headers'>('Params');
+  const [body,setBody] = useState('');
+  const [headers,setHeaders] = useState<{key:string,value:string}[]>([]);
   const [params,setParams]  = useState<{key:string,value:string}[]>([]);
       const paramCallbackfn = (param:{key:string,value:string}[]) =>{
         setParams(param)
       }
+      const bodyCallbackfn = (value:string)=>{
+        setBody(value);
+      }
+      const headersCallbackfn = (value:{key:string,value:string}[]) =>{
+        setHeaders(value)
+      }
+     const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!url) return alert('Please enter a URL');
 
-      const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); 
-        if (!url) return alert('Please enter a URL');
+  const baseUrl = url.split('?')[0];
+  const searchParams = new URLSearchParams();
+  params.forEach(p => {
+    if (p.key) searchParams.append(p.key, p.value);
+  });
+  const newUrl = `${baseUrl}?${searchParams.toString()}`;
+  setUrl(newUrl);
 
-        const baseUrl = url.split('?')[0];
-        const searchParams = new URLSearchParams();
-                  if (params) {
-            params.forEach(p => {
-              if (p.key) searchParams.append(p.key, p.value);
-            });
-          }
-        const newUrl = `${baseUrl}?${searchParams.toString()}`
-        setUrl(newUrl);
+  const headerObj = headers.reduce((acc, { key, value }) => {
+    if (key.trim()) acc[key.trim()] = value;
+    return acc;
+  }, {} as Record<string, string>);
 
-        const res = await sendRequest(method, newUrl);
-        setResponse(res);
-      };
+  let res;
+  const methodWithBody = ['POST', 'PUT', 'PATCH'].includes(method);
+
+  if (methodWithBody && body) {
+    res = await sendRequest(method, newUrl, body, headerObj);
+  } else {
+    res = await sendRequest(method, newUrl, undefined, headerObj);
+  }
+
+  setResponse(res);
+};
 
   return (
     <div>
@@ -74,6 +94,8 @@ export default function Home() {
                     </ul>
 
           {inputType === 'Params' && <Params paramCallbackfn={paramCallbackfn}/>}
+          {inputType ==='Body' && <Body bodyCallbackfn={bodyCallbackfn}></Body>}      
+          {inputType ==='Headers' && <Headers headersCallbackfn={headersCallbackfn}></Headers>}
       
 
         </form>
